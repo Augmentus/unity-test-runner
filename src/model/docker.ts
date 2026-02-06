@@ -145,6 +145,7 @@ const Docker = {
                 --volume "${githubWorkflow}":"c:/github/workflow" \
                 --volume "${workspace}":"c:/github/workspace" \
                 --volume "${actionFolder}/platforms/windows":"c:/steps" \
+                --volume "${actionFolder}/unity-config":"C:/ProgramData/Unity/config" \
                 --volume "${actionFolder}/BlankProject":"c:/BlankProject" \
                 ${sshAgent ? `--volume ${sshAgent}:c:/ssh-agent` : ''} \
                 ${

@@ -287,6 +287,7 @@ const Docker = {
                 --volume "${githubWorkflow}":"c:/github/workflow" \
                 --volume "${workspace}":"c:/github/workspace" \
                 --volume "${actionFolder}/platforms/windows":"c:/steps" \
+                --volume "${actionFolder}/unity-config":"C:/ProgramData/Unity/config" \
                 --volume "${actionFolder}/BlankProject":"c:/BlankProject" \
                 ${sshAgent ? `--volume ${sshAgent}:c:/ssh-agent` : ''} \
                 ${sshAgent
@@ -1016,7 +1017,7 @@ const ResultsCheck = {
                 core.info(`Processing file ${filepath}...`);
                 try {
                     const content = fs.readFileSync(path_1.default.join(artifactsPath, filepath), 'utf8');
-                    if (!content.includes('<test-results') && !content.includes('<test-run')) {
+                    if (!content.includes('<test-run')) {
                         // noinspection ExceptionCaughtLocallyJS
                         throw new Error('File does not appear to be a NUnit XML file');
                     }
