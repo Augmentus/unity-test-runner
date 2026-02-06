@@ -830,8 +830,10 @@ class LicensingServerSetup {
             core.error(`Missing services config ${servicesConfigPathTemplate}`);
             return;
         }
+        // Extract the first URL if multiple are provided (semicolon-separated)
+        const firstServer = unityLicensingServer.split(';')[0].trim();
         let servicesConfig = fs_1.default.readFileSync(servicesConfigPathTemplate).toString();
-        servicesConfig = servicesConfig.replace('%URL%', unityLicensingServer);
+        servicesConfig = servicesConfig.replace('%URL%', firstServer);
         fs_1.default.writeFileSync(servicesConfigPath, servicesConfig);
     }
 }

@@ -11,8 +11,11 @@ class LicensingServerSetup {
       return;
     }
 
+    // Extract the first URL if multiple are provided (semicolon-separated)
+    const firstServer = unityLicensingServer.split(';')[0].trim();
+
     let servicesConfig = fs.readFileSync(servicesConfigPathTemplate).toString();
-    servicesConfig = servicesConfig.replace('%URL%', unityLicensingServer);
+    servicesConfig = servicesConfig.replace('%URL%', firstServer);
     fs.writeFileSync(servicesConfigPath, servicesConfig);
   }
 }
