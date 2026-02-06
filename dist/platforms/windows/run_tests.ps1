@@ -112,36 +112,82 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
         $coverageArgs = "-coverageResultsPath $FULL_COVERAGE_RESULTS_PATH -enableCodeCoverage -debugCodeOptimization -coverageOptions ${env:COVERAGE_OPTIONS}"
     }
 
+    $logFile = "$FULL_ARTIFACTS_PATH\$platform.log"
+    Write-Output "Unity log file: $logFile"
+    Write-Output "Starting Unity process..."
+
     $TEST_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH/Editor/Unity.exe" `
                                 -NoNewWindow `
-                                -Wait `
                                 -PassThru `
                                 -ArgumentList  "-batchmode `
                                                 -nographics `
-                                                -logFile $FULL_ARTIFACTS_PATH\$platform.log `
+                                                -logFile $logFile `
                                                 -projectPath $UNITY_PROJECT_PATH `
                                                 $runTests `
                                                 $coverageArgs `
                                                 ${env:CUSTOM_PARAMETERS}"
 
+    # Cache the handle so exit code works properly
+    $unityHandle = $TEST_OUTPUT.Handle
+
+    # Tail the Unity log in real-time while the process runs
+    $linesSeen = 0
+    while (-not $TEST_OUTPUT.HasExited) {
+        Start-Sleep -Seconds 3
+        if (Test-Path $logFile) {
+            $newLines = @(Get-Content $logFile | Select-Object -Skip $linesSeen)
+            if ($newLines.Count -gt 0) {
+                $newLines | ForEach-Object { Write-Output $_ }
+                $linesSeen += $newLines.Count
+            }
+        }
+    }
+
+    # Final flush - print any remaining log lines
+    Start-Sleep -Seconds 1
+    if (Test-Path $logFile) {
+        $newLines = @(Get-Content $logFile | Select-Object -Skip $linesSeen)
+        if ($newLines.Count -gt 0) {
+            $newLines | ForEach-Object { Write-Output $_ }
+        }
+    }
+
     # Catch exit code
     $TEST_EXIT_CODE = $TEST_OUTPUT.ExitCode
-
-    # Print unity log output
-    Get-Content "$FULL_ARTIFACTS_PATH/$platform.log"
+    Write-Output "Unity process exited with code: $TEST_EXIT_CODE"
 
     if ( ( $TEST_EXIT_CODE -eq 0 ) -and ( "$platform" -eq "standalone" ) )
     {
         # Code Coverage currently only supports code ran in the Editor and not in Standalone/Player.
         # https://docs.unity.cn/Packages/com.unity.testtools.codecoverage@1.1/manual/TechnicalDetails.html#how-it-works
         
-        $TEST_OUTPUT = Start-Process -NoNewWindow -Wait -PassThru "$UNITY_PROJECT_PATH\Build\UnityTestRunner-Standalone.exe" -ArgumentList "-batchmode -nographics -logFile $FULL_ARTIFACTS_PATH\$platform-player.log -testResults $FULL_ARTIFACTS_PATH\$platform-results.xml"
+        $playerLogFile = "$FULL_ARTIFACTS_PATH\$platform-player.log"
+        Write-Output "Starting standalone player..."
+        $TEST_OUTPUT = Start-Process -NoNewWindow -PassThru "$UNITY_PROJECT_PATH\Build\UnityTestRunner-Standalone.exe" -ArgumentList "-batchmode -nographics -logFile $playerLogFile -testResults $FULL_ARTIFACTS_PATH\$platform-results.xml"
+
+        $unityHandle = $TEST_OUTPUT.Handle
+        $linesSeen = 0
+        while (-not $TEST_OUTPUT.HasExited) {
+            Start-Sleep -Seconds 3
+            if (Test-Path $playerLogFile) {
+                $newLines = @(Get-Content $playerLogFile | Select-Object -Skip $linesSeen)
+                if ($newLines.Count -gt 0) {
+                    $newLines | ForEach-Object { Write-Output $_ }
+                    $linesSeen += $newLines.Count
+                }
+            }
+        }
+        Start-Sleep -Seconds 1
+        if (Test-Path $playerLogFile) {
+            $newLines = @(Get-Content $playerLogFile | Select-Object -Skip $linesSeen)
+            if ($newLines.Count -gt 0) {
+                $newLines | ForEach-Object { Write-Output $_ }
+            }
+        }
 
         # Catch exit code
         $TEST_EXIT_CODE = $TEST_OUTPUT.ExitCode
-
-        # Print player log output
-        Get-Content "$FULL_ARTIFACTS_PATH/$platform-player.log"
+        Write-Output "Standalone player exited with code: $TEST_EXIT_CODE"
     }
 
     # Display results
