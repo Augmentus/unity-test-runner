@@ -106,6 +106,12 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
         }
     }
 
+    # Build coverage arguments only if COVERAGE_OPTIONS is set
+    $coverageArgs = ""
+    if (-not [string]::IsNullOrEmpty(${env:COVERAGE_OPTIONS})) {
+        $coverageArgs = "-coverageResultsPath $FULL_COVERAGE_RESULTS_PATH -enableCodeCoverage -debugCodeOptimization -coverageOptions ${env:COVERAGE_OPTIONS}"
+    }
+
     $TEST_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH/Editor/Unity.exe" `
                                 -NoNewWindow `
                                 -Wait `
@@ -114,11 +120,8 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
                                                 -nographics `
                                                 -logFile $FULL_ARTIFACTS_PATH\$platform.log `
                                                 -projectPath $UNITY_PROJECT_PATH `
-                                                -coverageResultsPath $FULL_COVERAGE_RESULTS_PATH `
                                                 $runTests `
-                                                -enableCodeCoverage `
-                                                -debugCodeOptimization `
-                                                -coverageOptions ${env:COVERAGE_OPTIONS} `
+                                                $coverageArgs `
                                                 ${env:CUSTOM_PARAMETERS}"
 
     # Catch exit code
