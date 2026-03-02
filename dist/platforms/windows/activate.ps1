@@ -58,21 +58,78 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
 
     Write-Output "Adding licensing server config"
 
-    $ACTIVATION_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
-                                       -ArgumentList "--acquire-floating" `
-                                       -NoNewWindow `
-                                       -PassThru `
-                                       -Wait `
-                                       -RedirectStandardOutput "license.txt"
+    # Split the UNITY_LICENSING_SERVER by semicolon to support multiple servers
+    $servers = ${env:UNITY_LICENSING_SERVER} -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
-    $PARSEDFILE = (Get-Content "license.txt" | Select-String -AllMatches -Pattern '\".*?\"' | ForEach-Object { $_.Matches.Value }) -replace '"'
+    Write-Output "Found $($servers.Count) license server(s):"
+    for ($i = 0; $i -lt $servers.Count; $i++) {
+        Write-Output "  [$($i + 1)] $($servers[$i])"
+    }
 
-    $env:FLOATING_LICENSE = $PARSEDFILE[1]
-    $FLOATING_LICENSE_TIMEOUT = $PARSEDFILE[3]
+    $ACTIVATION_EXIT_CODE = 1
+    $maxAttempts = 3
 
-    Write-Output "Acquired floating license: ""$env:FLOATING_LICENSE"" with timeout $FLOATING_LICENSE_TIMEOUT"
-    # Store the exit code from the verify command
-    $ACTIVATION_EXIT_CODE = $ACTIVATION_OUTPUT.ExitCode
+    foreach ($server in $servers) {
+        Write-Output "Trying license server: $server"
+
+        # Create the services-config.json for this server
+        $configDir = "$env:ProgramData\Unity\config"
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+
+        $servicesConfig = @"
+{
+  "licensingServiceBaseUrl": "$server",
+  "enableEntitlementLicensing": true,
+  "enableFloatingApi": true,
+  "clientConnectTimeoutSec": 5,
+  "clientHandshakeTimeoutSec": 10
+}
+"@
+        $configPath = "$configDir\services-config.json"
+        Set-Content -Path $configPath -Value $servicesConfig
+        Write-Output "Wrote services config to $configPath"
+
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Output "Acquire floating license attempt $attempt of $maxAttempts (server: $server)"
+
+            $ACTIVATION_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
+                -ArgumentList "--acquire-floating" `
+                -NoNewWindow `
+                -PassThru `
+                -Wait `
+                -RedirectStandardOutput "license.txt"
+
+            $ACTIVATION_EXIT_CODE = $ACTIVATION_OUTPUT.ExitCode
+
+            if ($ACTIVATION_EXIT_CODE -eq 0) {
+                $PARSEDFILE = (Get-Content "license.txt" | Select-String -AllMatches -Pattern '\".*?\"' | ForEach-Object { $_.Matches.Value }) -replace '"'
+
+                $env:FLOATING_LICENSE = $PARSEDFILE[1]
+                $FLOATING_LICENSE_TIMEOUT = $PARSEDFILE[3]
+
+                Write-Output "Acquired floating license: ""$env:FLOATING_LICENSE"" with timeout $FLOATING_LICENSE_TIMEOUT from server $server"
+                break
+            }
+            else {
+                Write-Output "Failed to acquire license from server $server (attempt $attempt, exit code: $ACTIVATION_EXIT_CODE)"
+                if ($attempt -lt $maxAttempts) {
+                    $delay = 5 * $attempt
+                    Write-Output "Retrying in $delay seconds..."
+                    Start-Sleep -Seconds $delay
+                }
+            }
+        }
+
+        if ($ACTIVATION_EXIT_CODE -eq 0) {
+            break
+        }
+    }
+
+    if ($ACTIVATION_EXIT_CODE -ne 0) {
+        Write-Output "Failed to acquire license from any server after $maxAttempts attempts each"
+    }
 }
 else
 {
