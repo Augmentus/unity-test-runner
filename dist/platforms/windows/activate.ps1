@@ -67,7 +67,10 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
     }
 
     $ACTIVATION_EXIT_CODE = 1
-    $maxAttempts = 3
+    $pollIntervalSec = if ($null -ne ${env:UNITY_LICENCE_POLL_INTERVAL_SECONDS}) { [int]${env:UNITY_LICENCE_POLL_INTERVAL_SECONDS} } else { 30 }
+    $timeoutMinutes = if ($null -ne ${env:UNITY_LICENCE_POLL_TIMEOUT_MINUTES}) { [int]${env:UNITY_LICENCE_POLL_TIMEOUT_MINUTES} } else { 60 }
+    $deadline = (Get-Date).AddMinutes($timeoutMinutes)
+    Write-Output "License acquisition timeout: $timeoutMinutes minutes (poll every ${pollIntervalSec}s)"
 
     foreach ($server in $servers) {
         Write-Output "Trying license server: $server"
@@ -91,8 +94,11 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
         Set-Content -Path $configPath -Value $servicesConfig
         Write-Output "Wrote services config to $configPath"
 
-        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Output "Acquire floating license attempt $attempt of $maxAttempts (server: $server)"
+        $attempt = 0
+        while ((Get-Date) -lt $deadline) {
+            $attempt++
+            $remaining = [math]::Round(($deadline - (Get-Date)).TotalMinutes, 1)
+            Write-Output "Acquire floating license attempt $attempt (server: $server, ${remaining}min remaining)"
 
             $ACTIVATION_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
                 -ArgumentList "--acquire-floating" `
@@ -114,10 +120,9 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
             }
             else {
                 Write-Output "Failed to acquire license from server $server (attempt $attempt, exit code: $ACTIVATION_EXIT_CODE)"
-                if ($attempt -lt $maxAttempts) {
-                    $delay = 5 * $attempt
-                    Write-Output "Retrying in $delay seconds..."
-                    Start-Sleep -Seconds $delay
+                if ((Get-Date) -lt $deadline) {
+                    Write-Output "Retrying in $pollIntervalSec seconds..."
+                    Start-Sleep -Seconds $pollIntervalSec
                 }
             }
         }
@@ -128,7 +133,7 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
     }
 
     if ($ACTIVATION_EXIT_CODE -ne 0) {
-        Write-Output "Failed to acquire license from any server after $maxAttempts attempts each"
+        Write-Output "Failed to acquire license from any server within $timeoutMinutes minute timeout"
     }
 }
 else

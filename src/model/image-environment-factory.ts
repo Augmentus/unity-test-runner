@@ -27,6 +27,14 @@ class ImageEnvironmentFactory {
         name: 'UNITY_LICENSING_SERVER',
         value: parameters.unityLicensingServer,
       },
+      {
+        name: 'UNITY_LICENCE_POLL_TIMEOUT_MINUTES',
+        value: parameters.licencePollTimeoutMinutes,
+      },
+      {
+        name: 'UNITY_LICENCE_POLL_INTERVAL_SECONDS',
+        value: parameters.licencePollIntervalSeconds,
+      },
       { name: 'UNITY_VERSION', value: parameters.editorVersion },
       {
         name: 'USYM_UPLOAD_AUTH_TOKEN',

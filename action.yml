@@ -90,6 +90,14 @@ inputs:
     required: false
     default: ''
     description: 'Url to a unity license server for acquiring floating licenses.'
+  licencePollTimeoutMinutes:
+    required: false
+    default: '60'
+    description: 'Maximum time in minutes to poll for a floating license before giving up. Useful when multiple concurrent builds compete for limited license seats.'
+  licencePollIntervalSeconds:
+    required: false
+    default: '30'
+    description: 'Interval in seconds between floating license acquisition attempts.'
   containerRegistryRepository:
     required: false
     default: 'unityci/editor'

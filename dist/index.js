@@ -339,6 +339,14 @@ class ImageEnvironmentFactory {
                 name: 'UNITY_LICENSING_SERVER',
                 value: parameters.unityLicensingServer,
             },
+            {
+                name: 'UNITY_LICENCE_POLL_TIMEOUT_MINUTES',
+                value: parameters.licencePollTimeoutMinutes,
+            },
+            {
+                name: 'UNITY_LICENCE_POLL_INTERVAL_SECONDS',
+                value: parameters.licencePollIntervalSeconds,
+            },
             { name: 'UNITY_VERSION', value: parameters.editorVersion },
             {
                 name: 'USYM_UPLOAD_AUTH_TOKEN',
@@ -652,6 +660,8 @@ class Input {
         const customImage = (0, core_1.getInput)('customImage') || '';
         const rawProjectPath = (0, core_1.getInput)('projectPath') || '.';
         const unityLicensingServer = (0, core_1.getInput)('unityLicensingServer') || '';
+        const licencePollTimeoutMinutes = (0, core_1.getInput)('licencePollTimeoutMinutes') || '60';
+        const licencePollIntervalSeconds = (0, core_1.getInput)('licencePollIntervalSeconds') || '30';
         const unityLicense = (0, core_1.getInput)('unityLicense') || ((_a = process.env['UNITY_LICENSE']) !== null && _a !== void 0 ? _a : '');
         let unitySerial = (_b = process.env['UNITY_SERIAL']) !== null && _b !== void 0 ? _b : '';
         const customParameters = (0, core_1.getInput)('customParameters') || '';
@@ -776,6 +786,8 @@ class Input {
             dockerMemoryLimit,
             dockerIsolationMode,
             unityLicensingServer,
+            licencePollTimeoutMinutes,
+            licencePollIntervalSeconds,
             runAsHostUser,
             containerRegistryRepository,
             containerRegistryImageVersion,

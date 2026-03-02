@@ -87,6 +87,8 @@ class Input {
     const customImage = getInput('customImage') || '';
     const rawProjectPath = getInput('projectPath') || '.';
     const unityLicensingServer = getInput('unityLicensingServer') || '';
+    const licencePollTimeoutMinutes = getInput('licencePollTimeoutMinutes') || '60';
+    const licencePollIntervalSeconds = getInput('licencePollIntervalSeconds') || '30';
     const unityLicense = getInput('unityLicense') || (process.env['UNITY_LICENSE'] ?? '');
     let unitySerial = process.env['UNITY_SERIAL'] ?? '';
     const customParameters = getInput('customParameters') || '';
@@ -239,6 +241,8 @@ class Input {
       dockerMemoryLimit,
       dockerIsolationMode,
       unityLicensingServer,
+      licencePollTimeoutMinutes,
+      licencePollIntervalSeconds,
       runAsHostUser,
       containerRegistryRepository,
       containerRegistryImageVersion,
