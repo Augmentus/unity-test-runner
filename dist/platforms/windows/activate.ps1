@@ -81,13 +81,20 @@ elseif( ($null -ne ${env:UNITY_LICENSING_SERVER}))
             New-Item -ItemType Directory -Path $configDir -Force | Out-Null
         }
 
+        # Build toolset line conditionally
+        $toolsetLine = ""
+        if ($null -ne ${env:UNITY_LICENSING_PRODUCT_IDS} -and ${env:UNITY_LICENSING_PRODUCT_IDS} -ne '') {
+            $toolsetLine = ",`n  `"toolset`": `"${env:UNITY_LICENSING_PRODUCT_IDS}`""
+            Write-Output "Requesting license toolset: ${env:UNITY_LICENSING_PRODUCT_IDS}"
+        }
+
         $servicesConfig = @"
 {
   "licensingServiceBaseUrl": "$server",
   "enableEntitlementLicensing": true,
   "enableFloatingApi": true,
   "clientConnectTimeoutSec": 5,
-  "clientHandshakeTimeoutSec": 10
+  "clientHandshakeTimeoutSec": 10$toolsetLine
 }
 "@
         $configPath = "$configDir\services-config.json"

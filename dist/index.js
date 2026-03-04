@@ -209,7 +209,7 @@ const Docker = {
         return __awaiter(this, void 0, void 0, function* () {
             let runCommand = '';
             if (parameters.unityLicensingServer !== '') {
-                licensing_server_setup_1.default.Setup(parameters.unityLicensingServer, parameters.actionFolder);
+                licensing_server_setup_1.default.Setup(parameters.unityLicensingServer, parameters.actionFolder, parameters.unityLicensingProductIds);
             }
             switch (process.platform) {
                 case 'linux':
@@ -346,6 +346,10 @@ class ImageEnvironmentFactory {
             {
                 name: 'UNITY_LICENCE_POLL_INTERVAL_SECONDS',
                 value: parameters.licencePollIntervalSeconds,
+            },
+            {
+                name: 'UNITY_LICENSING_PRODUCT_IDS',
+                value: parameters.unityLicensingProductIds,
             },
             { name: 'UNITY_VERSION', value: parameters.editorVersion },
             {
@@ -662,6 +666,7 @@ class Input {
         const unityLicensingServer = (0, core_1.getInput)('unityLicensingServer') || '';
         const licencePollTimeoutMinutes = (0, core_1.getInput)('licencePollTimeoutMinutes') || '60';
         const licencePollIntervalSeconds = (0, core_1.getInput)('licencePollIntervalSeconds') || '30';
+        const unityLicensingProductIds = (0, core_1.getInput)('unityLicensingProductIds') || '';
         const unityLicense = (0, core_1.getInput)('unityLicense') || ((_a = process.env['UNITY_LICENSE']) !== null && _a !== void 0 ? _a : '');
         let unitySerial = (_b = process.env['UNITY_SERIAL']) !== null && _b !== void 0 ? _b : '';
         const customParameters = (0, core_1.getInput)('customParameters') || '';
@@ -786,6 +791,7 @@ class Input {
             dockerMemoryLimit,
             dockerIsolationMode,
             unityLicensingServer,
+            unityLicensingProductIds,
             licencePollTimeoutMinutes,
             licencePollIntervalSeconds,
             runAsHostUser,
@@ -835,7 +841,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 class LicensingServerSetup {
-    static Setup(unityLicensingServer, actionFolder) {
+    static Setup(unityLicensingServer, actionFolder, unityLicensingProductIds = '') {
         const servicesConfigPath = `${actionFolder}/unity-config/services-config.json`;
         const servicesConfigPathTemplate = `${servicesConfigPath}.template`;
         if (!fs_1.default.existsSync(servicesConfigPathTemplate)) {
@@ -846,6 +852,9 @@ class LicensingServerSetup {
         const firstServer = unityLicensingServer.split(';')[0].trim();
         let servicesConfig = fs_1.default.readFileSync(servicesConfigPathTemplate).toString();
         servicesConfig = servicesConfig.replace('%URL%', firstServer);
+        servicesConfig = unityLicensingProductIds
+            ? servicesConfig.replace('%LICENSE_PRODUCT_IDS%', unityLicensingProductIds)
+            : servicesConfig.replace(/,\s*"toolset":\s*"%LICENSE_PRODUCT_IDS%"/, '');
         fs_1.default.writeFileSync(servicesConfigPath, servicesConfig);
     }
 }

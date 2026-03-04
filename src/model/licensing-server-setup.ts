@@ -2,7 +2,11 @@
 import fs from 'fs';
 
 class LicensingServerSetup {
-  public static Setup(unityLicensingServer, actionFolder: string) {
+  public static Setup(
+    unityLicensingServer,
+    actionFolder: string,
+    unityLicensingProductIds: string = '',
+  ) {
     const servicesConfigPath = `${actionFolder}/unity-config/services-config.json`;
     const servicesConfigPathTemplate = `${servicesConfigPath}.template`;
     if (!fs.existsSync(servicesConfigPathTemplate)) {
@@ -16,6 +20,11 @@ class LicensingServerSetup {
 
     let servicesConfig = fs.readFileSync(servicesConfigPathTemplate).toString();
     servicesConfig = servicesConfig.replace('%URL%', firstServer);
+
+    servicesConfig = unityLicensingProductIds
+      ? servicesConfig.replace('%LICENSE_PRODUCT_IDS%', unityLicensingProductIds)
+      : servicesConfig.replace(/,\s*"toolset":\s*"%LICENSE_PRODUCT_IDS%"/, '');
+
     fs.writeFileSync(servicesConfigPath, servicesConfig);
   }
 }

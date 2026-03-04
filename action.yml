@@ -98,6 +98,13 @@ inputs:
     required: false
     default: '30'
     description: 'Interval in seconds between floating license acquisition attempts.'
+  unityLicensingProductIds:
+    required: false
+    default: ''
+    description:
+      'Comma separated list of license product identifiers (licenseEntitlementGroupId) to request
+      from the license server. Not setting this uses the server default. Only applicable if
+      unityLicensingServer is set.'
   containerRegistryRepository:
     required: false
     default: 'unityci/editor'
