@@ -224,4 +224,40 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
         Get-Content "$FULL_ARTIFACTS_PATH/$platform-results.xml"
         Get-Content "$FULL_ARTIFACTS_PATH/$platform-results.xml" | Select-String "test-run" | Select-String "Passed"
     }
+
+    # Renew floating license between test modes to prevent expiration (exit code 198).
+    # Each Unity process consumes license time; returning and re-acquiring ensures
+    # the next process gets a fresh timeout window.
+    if ($null -ne ${env:UNITY_LICENSING_SERVER} -and $null -ne $env:FLOATING_LICENSE)
+    {
+        Write-Output ""
+        Write-Output "###########################"
+        Write-Output "#   Renewing License      #"
+        Write-Output "###########################"
+        Write-Output ""
+
+        Write-Output "Returning floating license: ""$env:FLOATING_LICENSE"""
+        Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
+            -ArgumentList "--return-floating ""$env:FLOATING_LICENSE"" " `
+            -NoNewWindow `
+            -Wait
+
+        Write-Output "Re-acquiring floating license..."
+        $RENEW_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
+            -ArgumentList "--acquire-floating" `
+            -NoNewWindow `
+            -PassThru `
+            -Wait `
+            -RedirectStandardOutput "license.txt"
+
+        if ($RENEW_OUTPUT.ExitCode -eq 0) {
+            $PARSEDFILE = (Get-Content "license.txt" | Select-String -AllMatches -Pattern '".*?"' | ForEach-Object { $_.Matches.Value }) -replace '"'
+            $env:FLOATING_LICENSE = $PARSEDFILE[1]
+            $FLOATING_LICENSE_TIMEOUT = $PARSEDFILE[3]
+            Write-Output "Renewed floating license: ""$env:FLOATING_LICENSE"" with timeout $FLOATING_LICENSE_TIMEOUT"
+        }
+        else {
+            Write-Output "::warning::Failed to renew floating license (exit code: $($RENEW_OUTPUT.ExitCode)). Next test mode may fail."
+        }
+    }
 }
