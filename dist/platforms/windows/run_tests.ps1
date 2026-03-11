@@ -242,22 +242,44 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
             -NoNewWindow `
             -Wait
 
-        Write-Output "Re-acquiring floating license..."
-        $RENEW_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
-            -ArgumentList "--acquire-floating" `
-            -NoNewWindow `
-            -PassThru `
-            -Wait `
-            -RedirectStandardOutput "license.txt"
+        $pollIntervalSec = if ($null -ne ${env:UNITY_LICENCE_POLL_INTERVAL_SECONDS}) { [int]${env:UNITY_LICENCE_POLL_INTERVAL_SECONDS} } else { 30 }
+        $timeoutMinutes = if ($null -ne ${env:UNITY_LICENCE_POLL_TIMEOUT_MINUTES}) { [int]${env:UNITY_LICENCE_POLL_TIMEOUT_MINUTES} } else { 60 }
+        $deadline = (Get-Date).AddMinutes($timeoutMinutes)
+        Write-Output "Re-acquiring floating license (timeout: ${timeoutMinutes}min, poll every ${pollIntervalSec}s)..."
 
-        if ($RENEW_OUTPUT.ExitCode -eq 0) {
-            $PARSEDFILE = (Get-Content "license.txt" | Select-String -AllMatches -Pattern '".*?"' | ForEach-Object { $_.Matches.Value }) -replace '"'
-            $env:FLOATING_LICENSE = $PARSEDFILE[1]
-            $FLOATING_LICENSE_TIMEOUT = $PARSEDFILE[3]
-            Write-Output "Renewed floating license: ""$env:FLOATING_LICENSE"" with timeout $FLOATING_LICENSE_TIMEOUT"
+        $renewSuccess = $false
+        $attempt = 0
+        while ((Get-Date) -lt $deadline) {
+            $attempt++
+            $remaining = [math]::Round(($deadline - (Get-Date)).TotalMinutes, 1)
+            Write-Output "Acquire floating license attempt $attempt (${remaining}min remaining)"
+
+            $RENEW_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH\Editor\Data\Resources\Licensing\Client\Unity.Licensing.Client.exe" `
+                -ArgumentList "--acquire-floating" `
+                -NoNewWindow `
+                -PassThru `
+                -Wait `
+                -RedirectStandardOutput "license.txt"
+
+            if ($RENEW_OUTPUT.ExitCode -eq 0) {
+                $PARSEDFILE = (Get-Content "license.txt" | Select-String -AllMatches -Pattern '".*?"' | ForEach-Object { $_.Matches.Value }) -replace '"'
+                $env:FLOATING_LICENSE = $PARSEDFILE[1]
+                $FLOATING_LICENSE_TIMEOUT = $PARSEDFILE[3]
+                Write-Output "Renewed floating license: ""$env:FLOATING_LICENSE"" with timeout $FLOATING_LICENSE_TIMEOUT"
+                $renewSuccess = $true
+                break
+            }
+            else {
+                Write-Output "Failed to acquire license (attempt $attempt, exit code: $($RENEW_OUTPUT.ExitCode))"
+                if ((Get-Date) -lt $deadline) {
+                    Write-Output "Retrying in $pollIntervalSec seconds..."
+                    Start-Sleep -Seconds $pollIntervalSec
+                }
+            }
         }
-        else {
-            Write-Output "::warning::Failed to renew floating license (exit code: $($RENEW_OUTPUT.ExitCode)). Next test mode may fail."
+
+        if (-not $renewSuccess) {
+            Write-Output "::warning::Failed to renew floating license within $timeoutMinutes minute timeout. Next test mode may fail."
         }
     }
 }
