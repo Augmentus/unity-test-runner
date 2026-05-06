@@ -128,6 +128,6 @@ branding:
   icon: 'box'
   color: 'gray-dark'
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/main.js'
   post: 'dist/post.js'

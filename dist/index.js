@@ -22,82 +22,83 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.run = run;
 const core = __importStar(__nccwpck_require__(2186));
 const model_1 = __nccwpck_require__(1359);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
+async function run() {
+    try {
+        model_1.Action.checkCompatibility();
+        const { workspace, actionFolder } = model_1.Action;
+        const { editorVersion, customImage, projectPath, customParameters, testMode, coverageOptions, artifactsPath, useHostNetwork, sshAgent, sshPublicKeysDirectoryPath, gitPrivateToken, githubToken, checkName, packageMode, packageName, scopedRegistryUrl, registryScopes, chownFilesTo, dockerCpuLimit, dockerMemoryLimit, dockerIsolationMode, unityLicensingServer, runAsHostUser, containerRegistryRepository, containerRegistryImageVersion, unitySerial, } = model_1.Input.getFromUser();
+        const baseImage = new model_1.ImageTag({
+            editorVersion,
+            customImage,
+            containerRegistryRepository,
+            containerRegistryImageVersion,
+        });
+        const runnerContext = model_1.Action.runnerContext();
         try {
-            model_1.Action.checkCompatibility();
-            const { workspace, actionFolder } = model_1.Action;
-            const { editorVersion, customImage, projectPath, customParameters, testMode, coverageOptions, artifactsPath, useHostNetwork, sshAgent, sshPublicKeysDirectoryPath, gitPrivateToken, githubToken, checkName, packageMode, packageName, scopedRegistryUrl, registryScopes, chownFilesTo, dockerCpuLimit, dockerMemoryLimit, dockerIsolationMode, unityLicensingServer, runAsHostUser, containerRegistryRepository, containerRegistryImageVersion, unitySerial, } = model_1.Input.getFromUser();
-            const baseImage = new model_1.ImageTag({
+            await model_1.Docker.run(baseImage, {
+                actionFolder,
                 editorVersion,
-                customImage,
-                containerRegistryRepository,
-                containerRegistryImageVersion,
+                workspace,
+                projectPath,
+                customParameters,
+                testMode,
+                coverageOptions,
+                artifactsPath,
+                useHostNetwork,
+                sshAgent,
+                sshPublicKeysDirectoryPath,
+                packageMode,
+                packageName,
+                scopedRegistryUrl,
+                registryScopes,
+                gitPrivateToken,
+                githubToken,
+                chownFilesTo,
+                dockerCpuLimit,
+                dockerMemoryLimit,
+                dockerIsolationMode,
+                unityLicensingServer,
+                runAsHostUser,
+                unitySerial,
+                ...runnerContext,
             });
-            const runnerContext = model_1.Action.runnerContext();
-            try {
-                yield model_1.Docker.run(baseImage, Object.assign({ actionFolder,
-                    editorVersion,
-                    workspace,
-                    projectPath,
-                    customParameters,
-                    testMode,
-                    coverageOptions,
-                    artifactsPath,
-                    useHostNetwork,
-                    sshAgent,
-                    sshPublicKeysDirectoryPath,
-                    packageMode,
-                    packageName,
-                    scopedRegistryUrl,
-                    registryScopes,
-                    gitPrivateToken,
-                    githubToken,
-                    chownFilesTo,
-                    dockerCpuLimit,
-                    dockerMemoryLimit,
-                    dockerIsolationMode,
-                    unityLicensingServer,
-                    runAsHostUser,
-                    unitySerial }, runnerContext));
-            }
-            finally {
-                yield model_1.Output.setArtifactsPath(artifactsPath);
-                yield model_1.Output.setCoveragePath('CodeCoverage');
-            }
-            if (githubToken) {
-                const failedTestCount = yield model_1.ResultsCheck.createCheck(artifactsPath, githubToken, checkName);
-                if (failedTestCount >= 1) {
-                    core.setFailed(`Test(s) Failed! Check '${checkName}' for details.`);
-                }
+        }
+        finally {
+            await model_1.Output.setArtifactsPath(artifactsPath);
+            await model_1.Output.setCoveragePath('CodeCoverage');
+        }
+        if (githubToken) {
+            const failedTestCount = await model_1.ResultsCheck.createCheck(artifactsPath, githubToken, checkName);
+            if (failedTestCount >= 1) {
+                core.setFailed(`Test(s) Failed! Check '${checkName}' for details.`);
             }
         }
-        catch (error) {
-            core.setFailed(error.message);
-        }
-    });
+    }
+    catch (error) {
+        core.setFailed(error.message);
+    }
 }
-exports.run = run;
 
 
 /***/ }),
@@ -138,9 +139,8 @@ const Action = {
         return process.env.GITHUB_WORKSPACE;
     },
     runnerContext() {
-        var _a, _b;
-        const runnerTemporaryPath = (_a = process.env.RUNNER_TEMP) !== null && _a !== void 0 ? _a : process.cwd();
-        const githubAction = (_b = process.env.GITHUB_ACTION) !== null && _b !== void 0 ? _b : process.pid.toString();
+        const runnerTemporaryPath = process.env.RUNNER_TEMP ?? process.cwd();
+        const githubAction = process.env.GITHUB_ACTION ?? process.pid.toString();
         return {
             runnerTemporaryPath,
             githubAction,
@@ -163,15 +163,6 @@ exports["default"] = Action;
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -194,35 +185,31 @@ const Docker = {
     /**
      *  Remove a possible leftover container created by `Docker.run`.
      */
-    ensureContainerRemoval(parameters) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cidfile = containerIdFilePath(parameters);
-            if (!(0, fs_1.existsSync)(cidfile)) {
-                return;
-            }
-            const container = (0, fs_1.readFileSync)(cidfile, 'ascii').trim();
-            yield (0, exec_1.exec)(`docker`, ['rm', '--force', '--volumes', container], { silent: true });
-            (0, fs_1.rmSync)(cidfile);
-        });
+    async ensureContainerRemoval(parameters) {
+        const cidfile = containerIdFilePath(parameters);
+        if (!(0, fs_1.existsSync)(cidfile)) {
+            return;
+        }
+        const container = (0, fs_1.readFileSync)(cidfile, 'ascii').trim();
+        await (0, exec_1.exec)(`docker`, ['rm', '--force', '--volumes', container], { silent: true });
+        (0, fs_1.rmSync)(cidfile);
     },
-    run(image, parameters, silent = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let runCommand = '';
-            if (parameters.unityLicensingServer !== '') {
-                licensing_server_setup_1.default.Setup(parameters.unityLicensingServer, parameters.actionFolder, parameters.unityLicensingProductIds);
-            }
-            switch (process.platform) {
-                case 'linux':
-                    runCommand = this.getLinuxCommand(image, parameters);
-                    break;
-                case 'win32':
-                    runCommand = this.getWindowsCommand(image, parameters);
-                    break;
-                default:
-                    throw new Error(`Operation system, ${process.platform}, is not supported yet.`);
-            }
-            yield (0, exec_1.exec)(runCommand, undefined, { silent });
-        });
+    async run(image, parameters, silent = false) {
+        let runCommand = '';
+        if (parameters.unityLicensingServer !== '') {
+            licensing_server_setup_1.default.Setup(parameters.unityLicensingServer, parameters.actionFolder, parameters.unityLicensingProductIds);
+        }
+        switch (process.platform) {
+            case 'linux':
+                runCommand = this.getLinuxCommand(image, parameters);
+                break;
+            case 'win32':
+                runCommand = this.getWindowsCommand(image, parameters);
+                break;
+            default:
+                throw new Error(`Operation system, ${process.platform}, is not supported yet.`);
+        }
+        await (0, exec_1.exec)(runCommand, undefined, { silent });
     },
     getLinuxCommand(image, parameters) {
         const { actionFolder, workspace, testMode, useHostNetwork, sshAgent, sshPublicKeysDirectoryPath, githubToken, runnerTemporaryPath, dockerCpuLimit, dockerMemoryLimit, } = parameters;
@@ -412,6 +399,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const platform_1 = __importDefault(__nccwpck_require__(9707));
 class ImageTag {
+    customImage;
+    repository;
+    editorVersion;
+    targetPlatform;
+    targetPlatformSuffix;
+    imagePlatformPrefix;
+    imageRollingVersion;
     constructor(imageProperties) {
         const { editorVersion = '2022.3.7f1', targetPlatform = ImageTag.getImagePlatformType(process.platform), customImage, containerRegistryRepository, containerRegistryImageVersion, } = imageProperties;
         if (!ImageTag.versionPattern.test(editorVersion)) {
@@ -583,13 +577,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -658,7 +662,6 @@ class Input {
         }
     }
     static getFromUser() {
-        var _a, _b;
         // Input variables specified in workflow using "with" prop.
         const unityVersion = (0, core_1.getInput)('unityVersion') || 'auto';
         const customImage = (0, core_1.getInput)('customImage') || '';
@@ -667,8 +670,8 @@ class Input {
         const licencePollTimeoutMinutes = (0, core_1.getInput)('licencePollTimeoutMinutes') || '60';
         const licencePollIntervalSeconds = (0, core_1.getInput)('licencePollIntervalSeconds') || '30';
         const unityLicensingProductIds = (0, core_1.getInput)('unityLicensingProductIds') || '';
-        const unityLicense = (0, core_1.getInput)('unityLicense') || ((_a = process.env['UNITY_LICENSE']) !== null && _a !== void 0 ? _a : '');
-        let unitySerial = (_b = process.env['UNITY_SERIAL']) !== null && _b !== void 0 ? _b : '';
+        const unityLicense = (0, core_1.getInput)('unityLicense') || (process.env['UNITY_LICENSE'] ?? '');
+        let unitySerial = process.env['UNITY_SERIAL'] ?? '';
         const customParameters = (0, core_1.getInput)('customParameters') || '';
         const testMode = ((0, core_1.getInput)('testMode') || 'all').toLowerCase();
         const coverageOptions = (0, core_1.getInput)('coverageOptions') || '';
@@ -827,13 +830,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -884,34 +897,31 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const Output = {
-    setArtifactsPath(artifactsPath) {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield core.setOutput('artifactsPath', artifactsPath);
-        });
+    async setArtifactsPath(artifactsPath) {
+        await core.setOutput('artifactsPath', artifactsPath);
     },
-    setCoveragePath(coveragePath) {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield core.setOutput('coveragePath', coveragePath);
-        });
+    async setCoveragePath(coveragePath) {
+        await core.setOutput('coveragePath', coveragePath);
     },
 };
 exports["default"] = Output;
@@ -997,22 +1007,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -1025,113 +1036,110 @@ const results_parser_1 = __importDefault(__nccwpck_require__(4552));
 const results_meta_1 = __nccwpck_require__(5552);
 const path_1 = __importDefault(__nccwpck_require__(1017));
 const ResultsCheck = {
-    createCheck(artifactsPath, githubToken, checkName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Validate input
-            if (!fs.existsSync(artifactsPath) || !githubToken || !checkName) {
-                throw new Error(`Missing input! {"artifactsPath": "${artifactsPath}",  "githubToken": "${githubToken}, "checkName": "${checkName}"`);
-            }
-            // Parse all results files
-            const runs = [];
-            const files = fs.readdirSync(artifactsPath);
-            yield Promise.all(files.map((filepath) => __awaiter(this, void 0, void 0, function* () {
-                if (!filepath.endsWith('.xml'))
-                    return;
-                core.info(`Processing file ${filepath}...`);
-                try {
-                    const content = fs.readFileSync(path_1.default.join(artifactsPath, filepath), 'utf8');
-                    if (!content.includes('<test-run')) {
-                        // noinspection ExceptionCaughtLocallyJS
-                        throw new Error('File does not appear to be a NUnit XML file');
-                    }
-                    const fileData = yield results_parser_1.default.parseResults(path_1.default.join(artifactsPath, filepath));
-                    core.info(fileData.summary);
-                    runs.push(fileData);
+    async createCheck(artifactsPath, githubToken, checkName) {
+        // Validate input
+        if (!fs.existsSync(artifactsPath) || !githubToken || !checkName) {
+            throw new Error(`Missing input! {"artifactsPath": "${artifactsPath}",  "githubToken": "${githubToken}, "checkName": "${checkName}"`);
+        }
+        // Parse all results files
+        const runs = [];
+        const files = fs.readdirSync(artifactsPath);
+        await Promise.all(files.map(async (filepath) => {
+            if (!filepath.endsWith('.xml'))
+                return;
+            core.info(`Processing file ${filepath}...`);
+            try {
+                const content = fs.readFileSync(path_1.default.join(artifactsPath, filepath), 'utf8');
+                if (!content.includes('<test-run')) {
+                    // noinspection ExceptionCaughtLocallyJS
+                    throw new Error('File does not appear to be a NUnit XML file');
                 }
-                catch (error) {
-                    core.warning(`Failed to parse ${filepath}: ${error.message}`);
-                }
-            })));
-            // Combine all results into a single run summary
-            const runSummary = new results_meta_1.RunMeta(checkName);
-            for (const run of runs) {
-                runSummary.total += run.total;
-                runSummary.passed += run.passed;
-                runSummary.skipped += run.skipped;
-                runSummary.failed += run.failed;
-                runSummary.duration += run.duration;
-                for (const suite of run.suites) {
-                    runSummary.addTests(suite.tests);
-                }
+                const fileData = await results_parser_1.default.parseResults(path_1.default.join(artifactsPath, filepath));
+                core.info(fileData.summary);
+                runs.push(fileData);
             }
-            // Log
-            core.info('=================');
-            core.info('Analyze result:');
-            core.info(runSummary.summary);
-            // Format output
-            const title = runSummary.summary;
-            const summary = yield ResultsCheck.renderSummary(runs);
-            core.debug(`Summary view: ${summary}`);
-            const details = yield ResultsCheck.renderDetails(runs);
-            core.debug(`Details view: ${details}`);
-            const rawAnnotations = runSummary.extractAnnotations();
-            core.debug(`Raw annotations: ${rawAnnotations}`);
-            const annotations = rawAnnotations.map(rawAnnotation => {
-                const annotation = rawAnnotation;
-                annotation.path = rawAnnotation.path.replace('/github/workspace/', '');
-                return annotation;
-            });
-            core.debug(`Annotations: ${annotations}`);
-            const output = {
-                title,
-                summary,
-                text: details,
-                annotations: annotations.slice(0, 50),
-            };
-            // Call GitHub API
-            yield ResultsCheck.requestGitHubCheck(githubToken, checkName, output);
-            return runSummary.failed;
-        });
-    },
-    requestGitHubCheck(githubToken, checkName, output) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const pullRequest = github.context.payload.pull_request;
-            const headSha = (pullRequest && pullRequest.head.sha) || github.context.sha;
-            // Check max length for https://github.com/game-ci/unity-test-runner/issues/214
-            const maxLength = 65534;
-            if (output.text.length > maxLength) {
-                core.warning(`Test details of ${output.text.length} surpass limit of ${maxLength}`);
-                output.text =
-                    'Test details omitted from GitHub UI due to length. See console logs for details.';
+            catch (error) {
+                core.warning(`Failed to parse ${filepath}: ${error.message}`);
             }
-            core.info(`Posting results for ${headSha}`);
-            const createCheckRequest = Object.assign(Object.assign({}, github.context.repo), { name: checkName, head_sha: headSha, status: 'completed', conclusion: 'neutral', output });
-            const octokit = github.getOctokit(githubToken);
-            yield octokit.rest.checks.create(createCheckRequest);
+        }));
+        // Combine all results into a single run summary
+        const runSummary = new results_meta_1.RunMeta(checkName);
+        for (const run of runs) {
+            runSummary.total += run.total;
+            runSummary.passed += run.passed;
+            runSummary.skipped += run.skipped;
+            runSummary.failed += run.failed;
+            runSummary.duration += run.duration;
+            for (const suite of run.suites) {
+                runSummary.addTests(suite.tests);
+            }
+        }
+        // Log
+        core.info('=================');
+        core.info('Analyze result:');
+        core.info(runSummary.summary);
+        // Format output
+        const title = runSummary.summary;
+        const summary = await ResultsCheck.renderSummary(runs);
+        core.debug(`Summary view: ${summary}`);
+        const details = await ResultsCheck.renderDetails(runs);
+        core.debug(`Details view: ${details}`);
+        const rawAnnotations = runSummary.extractAnnotations();
+        core.debug(`Raw annotations: ${rawAnnotations}`);
+        const annotations = rawAnnotations.map(rawAnnotation => {
+            const annotation = rawAnnotation;
+            annotation.path = rawAnnotation.path.replace('/github/workspace/', '');
+            return annotation;
         });
+        core.debug(`Annotations: ${annotations}`);
+        const output = {
+            title,
+            summary,
+            text: details,
+            annotations: annotations.slice(0, 50),
+        };
+        // Call GitHub API
+        await ResultsCheck.requestGitHubCheck(githubToken, checkName, output);
+        return runSummary.failed;
     },
-    renderSummary(runMetas) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return ResultsCheck.render(`${__dirname}/results-check-summary.hbs`, runMetas);
-        });
+    async requestGitHubCheck(githubToken, checkName, output) {
+        const pullRequest = github.context.payload.pull_request;
+        const headSha = (pullRequest && pullRequest.head.sha) || github.context.sha;
+        // Check max length for https://github.com/game-ci/unity-test-runner/issues/214
+        const maxLength = 65_534;
+        if (output.text.length > maxLength) {
+            core.warning(`Test details of ${output.text.length} surpass limit of ${maxLength}`);
+            output.text =
+                'Test details omitted from GitHub UI due to length. See console logs for details.';
+        }
+        core.info(`Posting results for ${headSha}`);
+        const createCheckRequest = {
+            ...github.context.repo,
+            name: checkName,
+            head_sha: headSha,
+            status: 'completed',
+            conclusion: 'neutral',
+            output,
+        };
+        const octokit = github.getOctokit(githubToken);
+        await octokit.rest.checks.create(createCheckRequest);
     },
-    renderDetails(runMetas) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return ResultsCheck.render(`${__dirname}/results-check-details.hbs`, runMetas);
-        });
+    async renderSummary(runMetas) {
+        return ResultsCheck.render(`${__dirname}/results-check-summary.hbs`, runMetas);
     },
-    render(viewPath, runMetas) {
-        return __awaiter(this, void 0, void 0, function* () {
-            handlebars_1.default.registerHelper('indent', toIndent => toIndent
-                .split('\n')
-                .map(s => `        ${s.replace('/github/workspace/', '')}`)
-                .join('\n'));
-            const source = yield fs.promises.readFile(viewPath, 'utf8');
-            const template = handlebars_1.default.compile(source);
-            return template({ runs: runMetas }, {
-                allowProtoMethodsByDefault: true,
-                allowProtoPropertiesByDefault: true,
-            });
+    async renderDetails(runMetas) {
+        return ResultsCheck.render(`${__dirname}/results-check-details.hbs`, runMetas);
+    },
+    async render(viewPath, runMetas) {
+        handlebars_1.default.registerHelper('indent', toIndent => toIndent
+            .split('\n')
+            .map(s => `        ${s.replace('/github/workspace/', '')}`)
+            .join('\n'));
+        const source = await fs.promises.readFile(viewPath, 'utf8');
+        const template = handlebars_1.default.compile(source);
+        return template({ runs: runMetas }, {
+            allowProtoMethodsByDefault: true,
+            allowProtoPropertiesByDefault: true,
         });
     },
 };
@@ -1146,28 +1154,26 @@ exports["default"] = ResultsCheck;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.TestMeta = exports.RunMeta = exports.Meta = exports.timeHelper = void 0;
+exports.TestMeta = exports.RunMeta = exports.Meta = void 0;
+exports.timeHelper = timeHelper;
 function timeHelper(seconds) {
     return `${seconds.toFixed(3)}s`;
 }
-exports.timeHelper = timeHelper;
 class Meta {
+    title;
+    duration = 0;
     constructor(title) {
-        this.duration = 0;
         this.title = title;
     }
 }
 exports.Meta = Meta;
 class RunMeta extends Meta {
-    constructor() {
-        super(...arguments);
-        this.total = 0;
-        this.passed = 0;
-        this.skipped = 0;
-        this.failed = 0;
-        this.tests = [];
-        this.suites = [];
-    }
+    total = 0;
+    passed = 0;
+    skipped = 0;
+    failed = 0;
+    tests = [];
+    suites = [];
     extractAnnotations() {
         const result = [];
         for (const suite of this.suites) {
@@ -1225,6 +1231,9 @@ class RunMeta extends Meta {
 }
 exports.RunMeta = RunMeta;
 class TestMeta extends Meta {
+    suite;
+    result;
+    annotation;
     constructor(suite, title) {
         super(title);
         this.suite = suite;
@@ -1275,22 +1284,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -1301,17 +1311,15 @@ const xmljs = __importStar(__nccwpck_require__(8821));
 const results_meta_1 = __nccwpck_require__(5552);
 const path_1 = __importDefault(__nccwpck_require__(1017));
 const ResultsParser = {
-    parseResults(filepath) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!fs.existsSync(filepath)) {
-                throw new Error(`Missing file! {"filepath": "${filepath}"}`);
-            }
-            core.info(`Trying to open ${filepath}`);
-            const file = yield fs.promises.readFile(filepath, 'utf8');
-            const results = xmljs.xml2js(file, { compact: true });
-            core.info(`File ${filepath} parsed...`);
-            return ResultsParser.convertResults(path_1.default.basename(filepath), results);
-        });
+    async parseResults(filepath) {
+        if (!fs.existsSync(filepath)) {
+            throw new Error(`Missing file! {"filepath": "${filepath}"}`);
+        }
+        core.info(`Trying to open ${filepath}`);
+        const file = await fs.promises.readFile(filepath, 'utf8');
+        const results = xmljs.xml2js(file, { compact: true });
+        core.info(`File ${filepath} parsed...`);
+        return ResultsParser.convertResults(path_1.default.basename(filepath), results);
     },
     convertResults(filename, filedata) {
         core.info(`Start analyzing results: ${filename}`);
@@ -1490,42 +1498,40 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.run = run;
 const core = __importStar(__nccwpck_require__(2186));
 const action_1 = __importDefault(__nccwpck_require__(9088));
 const model_1 = __nccwpck_require__(1359);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const parameters = action_1.default.runnerContext();
-            yield model_1.Docker.ensureContainerRemoval(parameters);
-        }
-        catch (error) {
-            core.setFailed(error.message);
-        }
-    });
+async function run() {
+    try {
+        const parameters = action_1.default.runnerContext();
+        await model_1.Docker.ensureContainerRemoval(parameters);
+    }
+    catch (error) {
+        core.setFailed(error.message);
+    }
 }
-exports.run = run;
 
 
 /***/ }),
