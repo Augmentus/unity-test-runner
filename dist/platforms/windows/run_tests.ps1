@@ -1,4 +1,282 @@
 #
+# Stream newly appended log content without rereading the whole file.
+#
+
+function Write-NewLogContent
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Cursor
+    )
+
+    if (-Not [System.IO.File]::Exists($Path))
+    {
+        return
+    }
+
+    $fileShare = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    try
+    {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            $fileShare
+        )
+    }
+    catch [System.IO.IOException]
+    {
+        # The writer may still be creating or rotating the log. Try again on the next poll.
+        return
+    }
+    catch [System.UnauthorizedAccessException]
+    {
+        return
+    }
+
+    try
+    {
+        if (-Not $Cursor.ContainsKey("Position"))
+        {
+            $Cursor.Position = [long]0
+        }
+
+        $position = [long]$Cursor.Position
+        $creationTimeUtcTicks = $null
+        try
+        {
+            $creationTimeUtcTicks = [System.IO.File]::GetCreationTimeUtc($Path).Ticks
+        }
+        catch
+        {
+            # The open handle is still usable if the path was rotated after it was opened.
+        }
+
+        $resetCursor = $stream.Length -lt $position
+        if (
+            -Not $resetCursor -and
+            $null -ne $creationTimeUtcTicks -and
+            $Cursor.ContainsKey("CreationTimeUtcTicks") -and
+            $null -ne $Cursor.CreationTimeUtcTicks -and
+            [long]$Cursor.CreationTimeUtcTicks -ne [long]$creationTimeUtcTicks
+        )
+        {
+            $resetCursor = $true
+        }
+
+        # Detect an in-place truncate and rewrite even when the new file has already
+        # grown beyond the previous cursor before the next poll.
+        if (
+            -Not $resetCursor -and
+            $position -gt 0 -and
+            $Cursor.ContainsKey("TailSignature") -and
+            -Not [string]::IsNullOrEmpty([string]$Cursor.TailSignature)
+        )
+        {
+            $signatureLength = [int][System.Math]::Min([long]64, $position)
+            [void]$stream.Seek($position - $signatureLength, [System.IO.SeekOrigin]::Begin)
+            $signatureBytes = [byte[]]::new($signatureLength)
+            $signatureBytesRead = $stream.Read($signatureBytes, 0, $signatureLength)
+            $currentTailSignature = [System.Convert]::ToBase64String(
+                $signatureBytes,
+                0,
+                $signatureBytesRead
+            )
+
+            if ($currentTailSignature -ne [string]$Cursor.TailSignature)
+            {
+                $resetCursor = $true
+            }
+        }
+
+        if ($resetCursor)
+        {
+            $position = [long]0
+            $Cursor.Position = $position
+            $Cursor.TailSignature = $null
+        }
+
+        [void]$stream.Seek($position, [System.IO.SeekOrigin]::Begin)
+        $detectEncodingFromByteOrderMarks = $position -eq 0
+        $reader = [System.IO.StreamReader]::new(
+            $stream,
+            [System.Text.Encoding]::UTF8,
+            $detectEncodingFromByteOrderMarks,
+            4096,
+            $true
+        )
+
+        try
+        {
+            while ($null -ne ($line = $reader.ReadLine()))
+            {
+                Write-Output $line
+            }
+        }
+        finally
+        {
+            $reader.Dispose()
+        }
+
+        $position = $stream.Position
+        $Cursor.Position = $position
+        if ($null -ne $creationTimeUtcTicks)
+        {
+            $Cursor.CreationTimeUtcTicks = $creationTimeUtcTicks
+        }
+
+        $signatureLength = [int][System.Math]::Min([long]64, $position)
+        if ($signatureLength -gt 0)
+        {
+            [void]$stream.Seek($position - $signatureLength, [System.IO.SeekOrigin]::Begin)
+            $signatureBytes = [byte[]]::new($signatureLength)
+            $signatureBytesRead = $stream.Read($signatureBytes, 0, $signatureLength)
+            $Cursor.TailSignature = [System.Convert]::ToBase64String(
+                $signatureBytes,
+                0,
+                $signatureBytesRead
+            )
+        }
+        else
+        {
+            $Cursor.TailSignature = $null
+        }
+    }
+    finally
+    {
+        $stream.Dispose()
+    }
+}
+
+function Wait-ProcessWithLogOutput
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$Process,
+
+        [Parameter(Mandatory = $true)]
+        [string]$LogFile,
+
+        [int]$PollIntervalMilliseconds = 3000
+    )
+
+    # Accessing the handle before polling keeps ExitCode available after the process exits.
+    $null = $Process.Handle
+    $cursor = @{
+        Position = [long]0
+        CreationTimeUtcTicks = $null
+        TailSignature = $null
+    }
+
+    while (-Not $Process.HasExited)
+    {
+        Write-NewLogContent -Path $LogFile -Cursor $cursor
+        if (-Not $Process.HasExited)
+        {
+            Start-Sleep -Milliseconds $PollIntervalMilliseconds
+        }
+    }
+
+    [void]$Process.WaitForExit()
+    Write-NewLogContent -Path $LogFile -Cursor $cursor
+}
+
+function Write-IndentedDiagnostic
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Label,
+
+        [string]$Text
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text))
+    {
+        return
+    }
+
+    Write-Output "  ${Label}:"
+    $Text.Trim() -split "`r?`n" | ForEach-Object { Write-Output "    $_" }
+}
+
+function Write-TestResultsSummary
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ResultsPath
+    )
+
+    if (-Not [System.IO.File]::Exists($ResultsPath))
+    {
+        Write-Output "::warning::Test results file not found: $ResultsPath"
+        return
+    }
+
+    try
+    {
+        [xml]$results = Get-Content -LiteralPath $ResultsPath -Raw -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Output "::warning::Unable to parse test results file '$ResultsPath': $($_.Exception.Message)"
+        return
+    }
+
+    $testRun = $results.SelectSingleNode("/test-run")
+    if ($null -eq $testRun)
+    {
+        Write-Output "::warning::Test results file has no test-run element: $ResultsPath"
+        return
+    }
+
+    Write-Output (
+        "Result: {0}; Total: {1}; Passed: {2}; Failed: {3}; Skipped: {4}; Inconclusive: {5}; Duration: {6}s" -f
+        $testRun.GetAttribute("result"),
+        $testRun.GetAttribute("total"),
+        $testRun.GetAttribute("passed"),
+        $testRun.GetAttribute("failed"),
+        $testRun.GetAttribute("skipped"),
+        $testRun.GetAttribute("inconclusive"),
+        $testRun.GetAttribute("duration")
+    )
+
+    $failedTests = @($results.SelectNodes("//test-case[starts-with(@result, 'Failed')]"))
+    if ($failedTests.Count -eq 0)
+    {
+        return
+    }
+
+    Write-Output "Failed test diagnostics ($($failedTests.Count)):"
+    foreach ($failedTest in $failedTests)
+    {
+        $testName = $failedTest.GetAttribute("fullname")
+        if ([string]::IsNullOrWhiteSpace($testName))
+        {
+            $testName = $failedTest.GetAttribute("name")
+        }
+
+        Write-Output "- $testName"
+        $failure = $failedTest.SelectSingleNode("failure")
+        if ($null -ne $failure)
+        {
+            $message = $failure.SelectSingleNode("message")
+            $stackTrace = $failure.SelectSingleNode("stack-trace")
+            if ($null -ne $message)
+            {
+                Write-IndentedDiagnostic -Label "Message" -Text $message.InnerText
+            }
+            if ($null -ne $stackTrace)
+            {
+                Write-IndentedDiagnostic -Label "Stack trace" -Text $stackTrace.InnerText
+            }
+        }
+    }
+}
+
+#
 # Set and display project path
 #
 
@@ -127,30 +405,7 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
                                                 $coverageArgs `
                                                 ${env:CUSTOM_PARAMETERS}"
 
-    # Cache the handle so exit code works properly
-    $unityHandle = $TEST_OUTPUT.Handle
-
-    # Tail the Unity log in real-time while the process runs
-    $linesSeen = 0
-    while (-not $TEST_OUTPUT.HasExited) {
-        Start-Sleep -Seconds 3
-        if (Test-Path $logFile) {
-            $newLines = @(Get-Content $logFile | Select-Object -Skip $linesSeen)
-            if ($newLines.Count -gt 0) {
-                $newLines | ForEach-Object { Write-Output $_ }
-                $linesSeen += $newLines.Count
-            }
-        }
-    }
-
-    # Final flush - print any remaining log lines
-    Start-Sleep -Seconds 1
-    if (Test-Path $logFile) {
-        $newLines = @(Get-Content $logFile | Select-Object -Skip $linesSeen)
-        if ($newLines.Count -gt 0) {
-            $newLines | ForEach-Object { Write-Output $_ }
-        }
-    }
+    Wait-ProcessWithLogOutput -Process $TEST_OUTPUT -LogFile $logFile
 
     # Catch exit code
     $TEST_EXIT_CODE = $TEST_OUTPUT.ExitCode
@@ -165,25 +420,7 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
         Write-Output "Starting standalone player..."
         $TEST_OUTPUT = Start-Process -NoNewWindow -PassThru "$UNITY_PROJECT_PATH\Build\UnityTestRunner-Standalone.exe" -ArgumentList "-batchmode -nographics -logFile $playerLogFile -testResults $FULL_ARTIFACTS_PATH\$platform-results.xml"
 
-        $unityHandle = $TEST_OUTPUT.Handle
-        $linesSeen = 0
-        while (-not $TEST_OUTPUT.HasExited) {
-            Start-Sleep -Seconds 3
-            if (Test-Path $playerLogFile) {
-                $newLines = @(Get-Content $playerLogFile | Select-Object -Skip $linesSeen)
-                if ($newLines.Count -gt 0) {
-                    $newLines | ForEach-Object { Write-Output $_ }
-                    $linesSeen += $newLines.Count
-                }
-            }
-        }
-        Start-Sleep -Seconds 1
-        if (Test-Path $playerLogFile) {
-            $newLines = @(Get-Content $playerLogFile | Select-Object -Skip $linesSeen)
-            if ($newLines.Count -gt 0) {
-                $newLines | ForEach-Object { Write-Output $_ }
-            }
-        }
+        Wait-ProcessWithLogOutput -Process $TEST_OUTPUT -LogFile $playerLogFile
 
         # Catch exit code
         $TEST_EXIT_CODE = $TEST_OUTPUT.ExitCode
@@ -221,8 +458,7 @@ foreach ( $platform in ${env:TEST_PLATFORMS}.Split(";") )
 
     if ($platform -ne "COMBINE_RESULTS")
     {
-        Get-Content "$FULL_ARTIFACTS_PATH/$platform-results.xml"
-        Get-Content "$FULL_ARTIFACTS_PATH/$platform-results.xml" | Select-String "test-run" | Select-String "Passed"
+        Write-TestResultsSummary -ResultsPath "$FULL_ARTIFACTS_PATH/$platform-results.xml"
     }
 
     # Renew floating license between test modes to prevent expiration (exit code 198).
