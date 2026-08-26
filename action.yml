@@ -20,6 +20,10 @@ inputs:
     required: false
     default: 'all'
     description: 'The type of tests to be run by the test runner.'
+  warmupProject:
+    required: false
+    default: 'false'
+    description: 'Open and quit the Unity project once before running tests so imports and script compilation finish in a separate Editor process.'
   coverageOptions:
     required: false
     default: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport;dontClear'

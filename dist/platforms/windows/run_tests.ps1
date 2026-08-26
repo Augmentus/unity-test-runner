@@ -331,6 +331,42 @@ Write-Output "###########################"
 Write-Output ""
 Get-ChildItem -Hidden -Path "$UNITY_PROJECT_PATH"
 
+# A fresh project can compile and reload its domain in the same Editor process that
+# starts command-line tests. Some Editor-only schedulers do not survive that handoff.
+# When requested, finish imports and compilation in a short-lived process so the test
+# process starts from the same stable project state as a subsequent test mode.
+if (${env:WARMUP_PROJECT} -eq "true")
+{
+    Write-Output ""
+    Write-Output "###########################"
+    Write-Output "#   Warming Unity Project #"
+    Write-Output "###########################"
+    Write-Output ""
+
+    $warmupLogFile = "$FULL_ARTIFACTS_PATH\warmup.log"
+    Write-Output "Unity warm-up log file: $warmupLogFile"
+    Write-Output "Starting Unity warm-up process..."
+
+    $WARMUP_OUTPUT = Start-Process -FilePath "$Env:UNITY_PATH/Editor/Unity.exe" `
+                                   -NoNewWindow `
+                                   -PassThru `
+                                   -ArgumentList "-batchmode `
+                                                   -nographics `
+                                                   -quit `
+                                                   -logFile $warmupLogFile `
+                                                   -projectPath $UNITY_PROJECT_PATH"
+
+    Wait-ProcessWithLogOutput -Process $WARMUP_OUTPUT -LogFile $warmupLogFile
+    $WARMUP_EXIT_CODE = $WARMUP_OUTPUT.ExitCode
+    Write-Output "Unity warm-up process exited with code: $WARMUP_EXIT_CODE"
+
+    if ($WARMUP_EXIT_CODE -ne 0)
+    {
+        $TEST_RUNNER_EXIT_CODE = $WARMUP_EXIT_CODE
+        return
+    }
+}
+
 #
 # Testing for each platform
 #

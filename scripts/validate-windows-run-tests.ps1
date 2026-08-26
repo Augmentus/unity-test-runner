@@ -90,6 +90,18 @@ Assert-Contains `
     -Text $runTestsSource `
     -Expected "[System.IO.File]::Open(" `
     -Message "The log reader must use an incremental FileStream"
+Assert-Contains `
+    -Text $runTestsSource `
+    -Expected 'if (${env:WARMUP_PROJECT} -eq "true")' `
+    -Message "The optional project warm-up gate is missing"
+Assert-Contains `
+    -Text $runTestsSource `
+    -Expected '-quit `' `
+    -Message "The project warm-up must exit before the test process starts"
+Assert-Contains `
+    -Text $runTestsSource `
+    -Expected 'Wait-ProcessWithLogOutput -Process $WARMUP_OUTPUT -LogFile $warmupLogFile' `
+    -Message "The project warm-up log must stream through the incremental reader"
 
 $temporaryDirectory = Join-Path (
     [System.IO.Path]::GetTempPath()

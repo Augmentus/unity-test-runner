@@ -47,7 +47,7 @@ async function run() {
     try {
         model_1.Action.checkCompatibility();
         const { workspace, actionFolder } = model_1.Action;
-        const { editorVersion, customImage, projectPath, customParameters, testMode, coverageOptions, artifactsPath, useHostNetwork, sshAgent, sshPublicKeysDirectoryPath, gitPrivateToken, githubToken, checkName, packageMode, packageName, scopedRegistryUrl, registryScopes, chownFilesTo, dockerCpuLimit, dockerMemoryLimit, dockerIsolationMode, unityLicensingServer, runAsHostUser, containerRegistryRepository, containerRegistryImageVersion, unitySerial, } = model_1.Input.getFromUser();
+        const { editorVersion, customImage, projectPath, customParameters, testMode, warmupProject, coverageOptions, artifactsPath, useHostNetwork, sshAgent, sshPublicKeysDirectoryPath, gitPrivateToken, githubToken, checkName, packageMode, packageName, scopedRegistryUrl, registryScopes, chownFilesTo, dockerCpuLimit, dockerMemoryLimit, dockerIsolationMode, unityLicensingServer, runAsHostUser, containerRegistryRepository, containerRegistryImageVersion, unitySerial, } = model_1.Input.getFromUser();
         const baseImage = new model_1.ImageTag({
             editorVersion,
             customImage,
@@ -63,6 +63,7 @@ async function run() {
                 projectPath,
                 customParameters,
                 testMode,
+                warmupProject,
                 coverageOptions,
                 artifactsPath,
                 useHostNetwork,
@@ -355,6 +356,7 @@ class ImageEnvironmentFactory {
             { name: 'GIT_PRIVATE_TOKEN', value: parameters.gitPrivateToken },
             { name: 'VERSION', value: parameters.buildVersion },
             { name: 'CUSTOM_PARAMETERS', value: parameters.customParameters },
+            { name: 'WARMUP_PROJECT', value: parameters.warmupProject },
             { name: 'RUN_AS_HOST_USER', value: parameters.runAsHostUser },
             { name: 'CHOWN_FILES_TO', value: parameters.chownFilesTo },
             { name: 'GITHUB_REF', value: process.env.GITHUB_REF },
@@ -674,6 +676,7 @@ class Input {
         let unitySerial = process.env['UNITY_SERIAL'] ?? '';
         const customParameters = (0, core_1.getInput)('customParameters') || '';
         const testMode = ((0, core_1.getInput)('testMode') || 'all').toLowerCase();
+        const rawWarmupProject = ((0, core_1.getInput)('warmupProject') || 'false').toLowerCase();
         const coverageOptions = (0, core_1.getInput)('coverageOptions') || '';
         const rawArtifactsPath = (0, core_1.getInput)('artifactsPath') || 'artifacts';
         const rawUseHostNetwork = (0, core_1.getInput)('useHostNetwork') || 'false';
@@ -711,6 +714,9 @@ class Input {
         // Validate input
         if (!this.testModes.includes(testMode)) {
             throw new Error(`Invalid testMode ${testMode}`);
+        }
+        if (rawWarmupProject !== 'true' && rawWarmupProject !== 'false') {
+            throw new Error(`Invalid warmupProject "${rawWarmupProject}"`);
         }
         if (!this.isValidFolderName(rawProjectPath)) {
             throw new Error(`Invalid projectPath "${rawProjectPath}"`);
@@ -769,6 +775,7 @@ class Input {
         const artifactsPath = rawArtifactsPath.replace(/\/$/, '');
         const sshPublicKeysDirectoryPath = rawSshPublicKeysDirectoryPath.replace(/\/$/, '');
         const useHostNetwork = rawUseHostNetwork === 'true';
+        const warmupProject = rawWarmupProject === 'true';
         const editorVersion = unityVersion === 'auto' ? unity_version_parser_1.default.read(projectPath) : unityVersion;
         // Return sanitised input
         return {
@@ -777,6 +784,7 @@ class Input {
             projectPath,
             customParameters,
             testMode,
+            warmupProject,
             coverageOptions,
             artifactsPath,
             useHostNetwork,

@@ -1,5 +1,6 @@
 import Input from './input';
 import fs from 'fs';
+import * as core from '@actions/core';
 
 jest.mock('./unity-version-parser');
 
@@ -18,6 +19,7 @@ describe('Input', () => {
   afterEach(() => {
     // Restore original process.env
     process.env = originalEnvironment;
+    jest.restoreAllMocks();
   });
 
   describe('getFromUser', () => {
@@ -27,6 +29,26 @@ describe('Input', () => {
 
     it('returns an object', () => {
       expect(typeof Input.getFromUser()).toStrictEqual('object');
+    });
+
+    it('disables project warm-up by default', () => {
+      expect(Input.getFromUser().warmupProject).toStrictEqual(false);
+    });
+
+    it('enables project warm-up when requested', () => {
+      jest
+        .spyOn(core, 'getInput')
+        .mockImplementation(name => (name === 'warmupProject' ? 'true' : ''));
+
+      expect(Input.getFromUser().warmupProject).toStrictEqual(true);
+    });
+
+    it('rejects an invalid project warm-up value', () => {
+      jest
+        .spyOn(core, 'getInput')
+        .mockImplementation(name => (name === 'warmupProject' ? 'sometimes' : ''));
+
+      expect(() => Input.getFromUser()).toThrow('Invalid warmupProject "sometimes"');
     });
   });
 

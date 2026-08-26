@@ -162,6 +162,31 @@ echo "###########################"
 echo ""
 ls -alh "$UNITY_PROJECT_PATH"
 
+# Finish imports and script compilation in a separate Editor process when requested.
+# This keeps the test process free from the domain reload triggered by a fresh project.
+if [[ "$WARMUP_PROJECT" == "true" ]]; then
+  echo ""
+  echo "###########################"
+  echo "#   Warming Unity Project #"
+  echo "###########################"
+  echo ""
+
+  unity-editor \
+    -batchmode \
+    -nographics \
+    -quit \
+    -logFile "$FULL_ARTIFACTS_PATH/warmup.log" \
+    -projectPath "$UNITY_PROJECT_PATH"
+
+  WARMUP_EXIT_CODE=$?
+  cat "$FULL_ARTIFACTS_PATH/warmup.log"
+
+  if [ $WARMUP_EXIT_CODE -ne 0 ]; then
+    TEST_RUNNER_EXIT_CODE=$WARMUP_EXIT_CODE
+    return
+  fi
+fi
+
 #
 # Testing for each platform
 #
