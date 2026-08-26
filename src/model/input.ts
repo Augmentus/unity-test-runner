@@ -94,6 +94,7 @@ class Input {
     let unitySerial = process.env['UNITY_SERIAL'] ?? '';
     const customParameters = getInput('customParameters') || '';
     const testMode = (getInput('testMode') || 'all').toLowerCase();
+    const rawWarmupProject = (getInput('warmupProject') || 'false').toLowerCase();
     const coverageOptions = getInput('coverageOptions') || '';
     const rawArtifactsPath = getInput('artifactsPath') || 'artifacts';
     const rawUseHostNetwork = getInput('useHostNetwork') || 'false';
@@ -134,6 +135,10 @@ class Input {
     // Validate input
     if (!this.testModes.includes(testMode)) {
       throw new Error(`Invalid testMode ${testMode}`);
+    }
+
+    if (rawWarmupProject !== 'true' && rawWarmupProject !== 'false') {
+      throw new Error(`Invalid warmupProject "${rawWarmupProject}"`);
     }
 
     if (!this.isValidFolderName(rawProjectPath)) {
@@ -215,6 +220,7 @@ class Input {
     const artifactsPath = rawArtifactsPath.replace(/\/$/, '');
     const sshPublicKeysDirectoryPath = rawSshPublicKeysDirectoryPath.replace(/\/$/, '');
     const useHostNetwork = rawUseHostNetwork === 'true';
+    const warmupProject = rawWarmupProject === 'true';
     const editorVersion =
       unityVersion === 'auto' ? UnityVersionParser.read(projectPath) : unityVersion;
 
@@ -225,6 +231,7 @@ class Input {
       projectPath,
       customParameters,
       testMode,
+      warmupProject,
       coverageOptions,
       artifactsPath,
       useHostNetwork,

@@ -56,6 +56,7 @@ class ImageEnvironmentFactory {
       { name: 'GIT_PRIVATE_TOKEN', value: parameters.gitPrivateToken },
       { name: 'VERSION', value: parameters.buildVersion },
       { name: 'CUSTOM_PARAMETERS', value: parameters.customParameters },
+      { name: 'WARMUP_PROJECT', value: parameters.warmupProject },
       { name: 'RUN_AS_HOST_USER', value: parameters.runAsHostUser },
       { name: 'CHOWN_FILES_TO', value: parameters.chownFilesTo },
       { name: 'GITHUB_REF', value: process.env.GITHUB_REF },
